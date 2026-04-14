@@ -1,0 +1,61 @@
+services:
+  backend:
+    image: kie-agent-backend:latest
+    build:
+      context: ./backend
+    container_name: kie-agent-backend
+    restart: unless-stopped
+    environment:
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://192.168.137.2:8000/v1}
+      LLM_MODEL: ${LLM_MODEL:-Qwen3.5-35B-A3B-GPTQ-Int4}
+      LLM_API_KEY: ${LLM_API_KEY:-EMPTY}
+      DATA_DIR: /app/data
+      UPLOAD_DIR: /app/data/uploads
+      OUTPUT_DIR: /app/data/outputs
+      LOG_DIR: /app/data/logs
+      DB_PATH: /app/data/tasks.db
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-2}
+      LLM_RESPONSE_EXCERPT_LIMIT: ${LLM_RESPONSE_EXCERPT_LIMIT:-500}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["*"]}
+    volumes:
+      - ./backend/data:/app/data
+    ports:
+      - "${BACKEND_PORT:-8001}:8001"
+
+  worker:
+    image: kie-agent-worker:latest
+    build:
+      context: ./backend
+    container_name: kie-agent-worker
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    environment:
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://192.168.137.2:8000/v1}
+      LLM_MODEL: ${LLM_MODEL:-Qwen3.5-35B-A3B-GPTQ-Int4}
+      LLM_API_KEY: ${LLM_API_KEY:-EMPTY}
+      DATA_DIR: /app/data
+      UPLOAD_DIR: /app/data/uploads
+      OUTPUT_DIR: /app/data/outputs
+      LOG_DIR: /app/data/logs
+      DB_PATH: /app/data/tasks.db
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-2}
+      LLM_RESPONSE_EXCERPT_LIMIT: ${LLM_RESPONSE_EXCERPT_LIMIT:-500}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ./backend/data:/app/data
+    depends_on:
+      - backend
+
+  frontend:
+    image: kie-agent-frontend:latest
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8001}
+    container_name: kie-agent-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - backend
